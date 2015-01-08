@@ -32,36 +32,57 @@ updateCoord uBound (x,y) direction = case direction of
                                         2 -> cond (y > 0     ) (x,y-1) -- S  
                                         3 -> cond (x > 0     ) (x-1,y) -- W
      where cond c v = if c then Just v else Nothing
-     
+
+-- | The opposite direction.     
 oppDirection :: Direction -> Direction
 oppDirection dir = ite (dir .== 4)  4 $  -- No direction
                    let newDir = dir + 2 in
                    ite (newDir .> 3) (newDir - 4) newDir
         
-
+-- | Return the matching element from the list, otherwise a dummy default value
 matchDir :: [(Direction,Elem)] -> Direction -> Elem
 matchDir [] _ = (4,98,99)
 matchDir (x@(dir,elem):xs) direct = ite (direct .== dir) elem (matchDir xs direct)                                      
-       
+
+-- | Return true if exactly one value is true.       
 exactlyOne :: [SBool] -> SBool
 exactlyOne [] = false            
-exactlyOne (t1:tRest) = t1 &&& (bAnd $ map bnot tRest) ||| (bnot t1 &&& exactlyOne tRest)                           
+exactlyOne (t1:tRest) = t1 &&& bAnd (map bnot tRest) ||| (bnot t1 &&& exactlyOne tRest)                           
 
+-- | Check one square of the grid. Generate the satisfying equation
 checkElement :: Array Coord Elem -> (Coord,Elem) -> SBool
 checkElement arr (coord, (dir,color, dist)) = 
-    if coord == (0,0) then dir .== 4 &&& color .== 9 &&& dist .== 0 &&& exactlyOne pointingAtMe
-    else if coord == (1,0) then checkDir &&& color .== targColor &&& dist .== targDist + 1 &&& (bnot $ bOr pointingAtMe)
-                      else  checkDir &&& color .== targColor &&& dist .== targDist + 1 
-                            &&& exactlyOne pointingAtMe     
+    case findSink of
+      Just colorIdx -> dir .== 4 &&& color .== colorIdx &&& dist .== 0 &&& exactlyOne pointingAtMe
+      _ -> case findSource of
+             Just colorIdx -> checkDir &&& color .== colorIdx &&& color .== targColor &&& dist .== targDist + 1
+                               &&& bnot (bOr pointingAtMe)
+             _ -> checkDir &&& color .== targColor &&& dist .== targDist + 1 
+                  &&& exactlyOne pointingAtMe        
                     
   where ((lowB,_),(upB,_)) = bounds arr
-        neighbours = catMaybes $ map (\dir -> (,dir) <$> (updateCoord upB coord dir)) [0..3]
-        neighElems = map (\(coord,dir) -> (dir,arr!coord)) neighbours
-        checkDir = bAny (.== dir) $ map snd neighbours
+        -- coord and direction of neighbours of coord
+        neighbours = catMaybes $ map (\dir -> (,dir) <$> updateCoord upB coord dir) [0..3]
+        neighElems = map (\(coord,dir) -> (dir,arr!coord)) neighbours -- The values (Elems)
+        -- Check that the direction is a valid one; it points to a neighbour
+        checkDir = bAny (.== dir) $ map snd neighbours 
+        -- Get the element of the next neighbour on the trail (pointed to by dir)
         (targDir, targColor, targDist) = matchDir neighElems dir
-        pointingAtMe = map (\(neighCoord,neighDir) -> unDir (arr!neighCoord) .== oppDirection neighDir) neighbours 
+        -- The neighbours that are pointing in my direction. i.e. they flow into coord
+        pointingAtMe = map (\(neighCoord,neighDir) -> unDir (arr!neighCoord) .== oppDirection neighDir) neighbours
+        -- Is the current coord a source. Use the index as color
+        findSource = fromIntegral <$> findIndex (\(EndPoints source _) -> source == coord) puzzle
+        -- Is the current source a sink
+        findSink = fromIntegral <$> findIndex (\(EndPoints _ sink) -> sink == coord) puzzle
                         
 
+data EP = EndPoints Coord Coord
+
+puzzle :: [EP]
+puzzle = [EndPoints (3,5) (6,5), EndPoints (1,2) (5,1), EndPoints (7,1) (5,3),
+          EndPoints (2,2) (6,4), EndPoints (3,2) (6,6),  EndPoints (5,4) (7,0),
+          EndPoints (5,0) (8,0)
+         ]
 -- A source is not allowed to have anything going into it.
 -- Every other square has exactly one path in.
 -- A sink contains no arrow.
@@ -71,8 +92,8 @@ checkElement arr (coord, (dir,color, dist)) =
 -- and for sources and sinks. We could encode this as a tag in the tuple,
 -- it might all just me easier though using arrays.
 
-isMagic :: Board -> SBool
-isMagic rows = (bAnd $ map (checkElement arr) (assocs arr)) 
+findCover :: Board -> SBool
+findCover rows = (bAnd $ map (checkElement arr) (assocs arr)) 
   where items = rows
         arr = listArray ((0,0),(n-1,n-1)) $ concat rows
         n = length rows
@@ -92,8 +113,8 @@ existsPairN n = mapM (const ((,,) <$> exists_ <*> exists_ <*> exists_)) [1..n]
 cover :: Int -> IO ()
 cover n
  | n < 0 = putStrLn $ "n must be non-negative, received: " ++ show n
- | True  = do putStrLn $ "Finding all " ++ show n ++ "-magic squares.."
-              res <- allSat $ (isMagic . chunk n) <$> existsPairN n2 
+ | True  = do putStrLn $ "Finding all covers."
+              res <- allSat $ (findCover . chunk n) <$> existsPairN n2 
               cnt <- displayModels disp res
               putStrLn $ "Found: " ++ show cnt ++ " solution(s)."
    where n2 = n * n
@@ -104,7 +125,7 @@ cover n
           = do when (i > 10) $ error "...More"
                putStrLn $ "Solution #" ++ show i
                mapM_ printRow board
-               putStrLn $ "Valid Check: " ++ show (isMagic sboard)
+               putStrLn $ "Valid Check: " ++ show (findCover sboard)
                putStrLn "Done."
           where lmod  = length model
                 board = chunk n model
