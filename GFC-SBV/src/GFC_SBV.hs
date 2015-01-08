@@ -47,22 +47,18 @@ exactlyOne :: [SBool] -> SBool
 exactlyOne [] = false            
 exactlyOne (t1:tRest) = t1 &&& (bAnd $ map bnot tRest) ||| (bnot t1 &&& exactlyOne tRest)                           
 
---- dir .>= 0 &&& dir .<= 3
-                        
 checkElement :: Array Coord Elem -> (Coord,Elem) -> SBool
 checkElement arr (coord, (dir,color, dist)) = 
     if coord == (0,0) then dir .== 4 &&& color .== 9 &&& dist .== 0 &&& exactlyOne pointingAtMe
     else if coord == (1,0) then checkDir &&& color .== targColor &&& dist .== targDist + 1 &&& (bnot $ bOr pointingAtMe)
                       else  checkDir &&& color .== targColor &&& dist .== targDist + 1 
-                            &&& exactlyOne pointingAtMe -- &&&  bnot pointingBack1    
-  -- (bnot $ bOr pointingBack)                          
+                            &&& exactlyOne pointingAtMe     
+                    
   where ((lowB,_),(upB,_)) = bounds arr
         neighbours = catMaybes $ map (\dir -> (,dir) <$> (updateCoord upB coord dir)) [0..3]
         neighElems = map (\(coord,dir) -> (dir,arr!coord)) neighbours
         checkDir = bAny (.== dir) $ map snd neighbours
         (targDir, targColor, targDist) = matchDir neighElems dir
-        -- pointingBack1 = targDir .== oppDirection dir
-        -- pointingBack = map (\(neighCoord,neighDir) -> dir .== neighDir &&& unDir (arr!neighCoord) .== oppDirection neighDir) neighbours    
         pointingAtMe = map (\(neighCoord,neighDir) -> unDir (arr!neighCoord) .== oppDirection neighDir) neighbours 
                         
 
@@ -76,15 +72,11 @@ checkElement arr (coord, (dir,color, dist)) =
 -- it might all just me easier though using arrays.
 
 isMagic :: Board -> SBool
-isMagic rows = (bAnd $ map (checkElement arr) (assocs arr)) -- &&& (bAnd $ map checkRow items) &&& (row1 $ head rows) &&& (rowN $ last rows) 
+isMagic rows = (bAnd $ map (checkElement arr) (assocs arr)) 
   where items = rows
         arr = listArray ((0,0),(n-1,n-1)) $ concat rows
         n = length rows
---        checkRow row = (rowCol1 $ head row) &&&  (rowColn $ last row)
---        row1 = bAll $ \(dir,color) -> dir ./= 0
---        rowN = bAll $ \(dir,color) -> dir ./= 2
---        rowCol1 (dir,color) = dir ./= 3
---        rowColn (dir,color) = dir ./= 1
+
 
 -- | Group a list of elements in the sublists of length @i@
 chunk :: Int -> [a] -> [[a]]
@@ -95,9 +87,6 @@ test1 :: Symbolic [(SWord8,SWord8)]
 test1 =  mapM (const ((,) <$> exists_ <*> exists_)) [1..10]
 
 existsPairN n = mapM (const ((,,) <$> exists_ <*> exists_ <*> exists_)) [1..n]
-
-existsPairN_fail n = zip <$> mkExistVars n <*> mkExistVars n
-
 
 -- | Given @n@, magic @n@ prints all solutions to the @nxn@ magic square problem
 cover :: Int -> IO ()
@@ -123,11 +112,7 @@ cover n
                 sh2 z = let s = show z in if length s < 2 then ' ':s else s
                 printRow r = putStr "   " >> mapM_ (\x -> putStr (sh2 x ++ " ")) r >> putStrLn ""
 
-test2 = (,) <$> [1,2,3] <*> [4,5]
-test3 = zip <$> Just [1,2,3] <*> Just [4,5]
-test4 = (arr!(0,1), inp!!0!!1)
-         where inp = [[4,5],[6,7]]
-               arr = listArray ((0,0),(1,1)) $ concat inp
+
 
 
 
