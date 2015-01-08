@@ -1,0 +1,14 @@
+name:           GFC-SBV
+version:        0.1
+cabal-version:  >=1.2
+build-type:     Simple
+author:         Rene
+
+library
+  hs-source-dirs:  src
+  build-depends:   
+                   base >= 4, sbv,
+                   array >=0.4.0 && <0.5
+  ghc-options:     -fwarn-missing-signatures
+  other-modules:   GFC_SBV
+
