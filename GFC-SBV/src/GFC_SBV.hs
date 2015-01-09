@@ -102,7 +102,7 @@ chunk i xs = let (f, r) = splitAt i xs in f : chunk i r
 existsPairN :: (SymWord a1, SymWord a2, SymWord a3) => Int -> Symbolic [(SBV a1, SBV a2, SBV a3)]
 existsPairN n = mapM (const ((,,) <$> exists_ <*> exists_ <*> exists_)) [1..n]
 
--- | Given @n@, cover @n@ finds a perfect cover of n trails as specified by puzzle
+-- | Given @puzzle@, cover @puzzle@ finds a perfect cover of trails as specified by puzzle
 cover :: Grid -> IO ()
 cover puzzle@(Grid (rows, cols) _)  
          = do putStrLn "Finding all covers."
