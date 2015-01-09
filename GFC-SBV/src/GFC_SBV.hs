@@ -57,6 +57,7 @@ checkElement arr (coord, (dir,color, dist)) =
       _ -> case findSource of
              Just colorIdx -> checkDir &&& color .== colorIdx &&& color .== targColor &&& dist .== targDist + 1
                                &&& bnot (bOr pointingAtMe)
+                  -- A normal square, not a sink or a source             
              _ -> checkDir &&& color .== targColor &&& dist .== targDist + 1 
                   &&& exactlyOne pointingAtMe        
                     
