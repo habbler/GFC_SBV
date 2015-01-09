@@ -109,7 +109,7 @@ test1 =  mapM (const ((,) <$> exists_ <*> exists_)) [1..10]
 
 existsPairN n = mapM (const ((,,) <$> exists_ <*> exists_ <*> exists_)) [1..n]
 
--- | Given @n@, magic @n@ prints all solutions to the @nxn@ magic square problem
+-- | Given @n@, cover @n@ finds a perfect cover of n trails as specified by puzzle
 cover :: Int -> IO ()
 cover n
  | n < 0 = putStrLn $ "n must be non-negative, received: " ++ show n
