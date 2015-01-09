@@ -62,7 +62,7 @@ checkElement arr (coord, (dir,color, dist)) =
                     
   where ((lowB,_),(upB,_)) = bounds arr
         -- coord and direction of neighbours of coord
-        neighbours = catMaybes $ map (\dir -> (,dir) <$> updateCoord upB coord dir) [0..3]
+        neighbours = mapMaybe (\dir -> (,dir) <$> updateCoord upB coord dir) [0..3]
         neighElems = map (\(coord,dir) -> (dir,arr!coord)) neighbours -- The values (Elems)
         -- Check that the direction is a valid one; it points to a neighbour
         checkDir = bAny (.== dir) $ map snd neighbours 
@@ -104,9 +104,7 @@ chunk :: Int -> [a] -> [[a]]
 chunk _ [] = []
 chunk i xs = let (f, r) = splitAt i xs in f : chunk i r
 
-test1 :: Symbolic [(SWord8,SWord8)]
-test1 =  mapM (const ((,) <$> exists_ <*> exists_)) [1..10]
-
+existsPairN :: (SymWord a1, SymWord a2, SymWord a3) => Int -> Symbolic [(SBV a1, SBV a2, SBV a3)]
 existsPairN n = mapM (const ((,,) <$> exists_ <*> exists_ <*> exists_)) [1..n]
 
 -- | Given @n@, cover @n@ finds a perfect cover of n trails as specified by puzzle
