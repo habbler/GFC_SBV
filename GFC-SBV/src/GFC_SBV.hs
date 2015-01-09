@@ -2,12 +2,13 @@
 module GFC_SBV where
 
 import Data.Array
-import Data.List
+import Data.List (findIndex)
 import Data.Maybe
 
 import Data.SBV
-import Control.Applicative
+--import Control.Applicative
 import Control.Monad (when)
+import Control.Applicative ((<$>),(<*>))
 
 type Direction = SWord8
 
@@ -16,6 +17,7 @@ type Distance = SWord8
 
 type Elem = (Direction, Colour, Distance)
 
+unDir :: Elem -> Direction
 unDir (dir,_,_) = dir
 
 type Row = [Elem]
@@ -23,6 +25,16 @@ type Row = [Elem]
 type Board = [Row]
 
 type Coord = (Int, Int)
+
+-- | The end-points of a trail
+data EPTrail = EndPoints { epSource :: Coord
+                         , epSink  :: Coord 
+                         } deriving (Eq, Show)
+
+-- | The problem setup. A particular size and sources and sinks
+data Grid = Grid { gSize :: (Int,Int)
+                 , gTrails :: [EPTrail] 
+                 }
 
 -- | Find the coord in direction d from give coord
 updateCoord :: Int -> Coord -> Direction -> Maybe Coord
@@ -50,8 +62,8 @@ exactlyOne [] = false
 exactlyOne (t1:tRest) = t1 &&& bAnd (map bnot tRest) ||| (bnot t1 &&& exactlyOne tRest)                           
 
 -- | Check one square of the grid. Generate the satisfying equation
-checkElement :: Array Coord Elem -> (Coord,Elem) -> SBool
-checkElement arr (coord, (dir,color, dist)) = 
+checkElement :: Array Coord Elem -> Grid -> (Coord,Elem) -> SBool
+checkElement arr puzzle (coord, (dir,color, dist)) = 
     case findSink of
       Just colorIdx -> dir .== 4 &&& color .== colorIdx &&& dist .== 0 &&& exactlyOne pointingAtMe
       _ -> case findSource of
@@ -72,24 +84,14 @@ checkElement arr (coord, (dir,color, dist)) =
         -- The neighbours that are pointing in my direction. i.e. they flow into coord
         pointingAtMe = map (\(neighCoord,neighDir) -> unDir (arr!neighCoord) .== oppDirection neighDir) neighbours
         -- Is the current coord a source. Use the index as color
-        findSource = fromIntegral <$> findIndex (\(EndPoints source _) -> source == coord) puzzle
+        findSource = fromIntegral <$> findIndex (\(EndPoints source _) -> source == coord) trails
         -- Is the current source a sink
-        findSink = fromIntegral <$> findIndex (\(EndPoints _ sink) -> sink == coord) puzzle
+        findSink = fromIntegral <$> findIndex (\(EndPoints _ sink) -> sink == coord) trails
+        trails = gTrails puzzle
                         
-
-data EP = EndPoints Coord Coord
-
-puzzle :: [EP]
-puzzle = [EndPoints (3,5) (6,5), EndPoints (1,2) (5,1), EndPoints (7,1) (5,3),
-          EndPoints (2,2) (6,4), EndPoints (3,2) (6,6),  EndPoints (5,4) (7,0),
-          EndPoints (5,0) (8,0)
-         ]
-
-findCover :: Board -> SBool
-findCover rows = (bAnd $ map (checkElement arr) (assocs arr)) 
-  where items = rows
-        arr = listArray ((0,0),(n-1,n-1)) $ concat rows
-        n = length rows
+findCover :: Grid -> [Elem] ->  SBool
+findCover  puzzle@(Grid (rows, cols) _) vars = bAnd $ map (checkElement arr puzzle) (assocs arr) 
+  where arr = listArray ((0,0),(rows-1,cols-1)) vars
 
 
 -- | Group a list of elements in the sublists of length @i@
@@ -101,31 +103,37 @@ existsPairN :: (SymWord a1, SymWord a2, SymWord a3) => Int -> Symbolic [(SBV a1,
 existsPairN n = mapM (const ((,,) <$> exists_ <*> exists_ <*> exists_)) [1..n]
 
 -- | Given @n@, cover @n@ finds a perfect cover of n trails as specified by puzzle
-cover :: Int -> IO ()
-cover n
- | n < 0 = putStrLn $ "n must be non-negative, received: " ++ show n
- | True  = do putStrLn $ "Finding all covers."
-              res <- allSat $ (findCover . chunk n) <$> existsPairN n2 
+cover :: Grid -> IO ()
+cover puzzle@(Grid (rows, cols) _)  
+         = do putStrLn "Finding all covers."
+              res <- allSat $ findCover puzzle <$> existsPairN n2 
               cnt <- displayModels disp res
               putStrLn $ "Found: " ++ show cnt ++ " solution(s)."
-   where n2 = n * n
+   where n2 = rows * cols
          disp i (_, model)
           | lmod /= n2
-          = error $ "Impossible! Backend solver returned " ++ show n ++ " values, was expecting: " ++ show lmod
+          = error $ "Impossible! Backend solver returned " ++ show n2 ++ " values, was expecting: " ++ show lmod
           | True
           = do when (i > 10) $ error "...More"
                putStrLn $ "Solution #" ++ show i
                mapM_ printRow board
-               putStrLn $ "Valid Check: " ++ show (findCover sboard)
+               putStrLn $ "Valid Check: " ++ show (findCover puzzle sboard)
                putStrLn "Done."
-          where lmod  = length model
-                board = chunk n model
-                sboard = map (map (\(x,y,z) -> (literal x, literal y,literal z))) board
+          where sboard = map (\(x,y,z) -> (literal x, literal y,literal z)) model
+                lmod  = length model
+                board = chunk cols model
                 sh2 z = let s = show z in if length s < 2 then ' ':s else s
                 printRow r = putStr "   " >> mapM_ (\x -> putStr (sh2 x ++ " ")) r >> putStrLn ""
 
+puzzle1 :: Grid
+puzzle1 = Grid (9,9) 
+         [EndPoints (3,5) (6,5), EndPoints (1,2) (5,1), EndPoints (7,1) (5,3)
+         ,EndPoints (2,2) (6,4), EndPoints (3,2) (6,6),  EndPoints (5,4) (7,0)
+         ,EndPoints (5,0) (8,0)
+         ]
 
-
+test1 :: IO ()
+test1 = cover puzzle1
 
 
 
