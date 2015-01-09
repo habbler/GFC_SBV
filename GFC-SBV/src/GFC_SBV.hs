@@ -53,7 +53,7 @@ oppDirection dir = ite (dir .== 4)  4 $  -- No direction
         
 -- | Return the matching element from the list, otherwise a dummy default value
 matchDir :: [(Direction,Elem)] -> Direction -> Elem
-matchDir [] _ = (4,98,99)
+matchDir [] _ = (4,255,255)
 matchDir (x@(dir,elem):xs) direct = ite (direct .== dir) elem (matchDir xs direct)                                      
 
 -- | Return true if exactly one value is true.       
@@ -122,8 +122,8 @@ cover puzzle@(Grid (rows, cols) _)
           where sboard = map (\(x,y,z) -> (literal x, literal y,literal z)) model
                 lmod  = length model
                 board = chunk cols model
-                sh2 z = let s = show z in if length s < 2 then ' ':s else s
-                printRow r = putStr "   " >> mapM_ (\x -> putStr (sh2 x ++ " ")) r >> putStrLn ""
+                sh2 z = take 10 $ " "++(show z)++"           "
+                printRow r = putStr "   " >> mapM_ (\x -> putStr (sh2 x)) r >> putStrLn ""
 
 puzzle1 :: Grid
 puzzle1 = Grid (9,9) 
