@@ -83,14 +83,6 @@ puzzle = [EndPoints (3,5) (6,5), EndPoints (1,2) (5,1), EndPoints (7,1) (5,3),
           EndPoints (2,2) (6,4), EndPoints (3,2) (6,6),  EndPoints (5,4) (7,0),
           EndPoints (5,0) (8,0)
          ]
--- A source is not allowed to have anything going into it.
--- Every other square has exactly one path in.
--- A sink contains no arrow.
-
--- Generating neighbours with lists?
--- Basically zip above, below left and right with special cases for boundaries
--- and for sources and sinks. We could encode this as a tag in the tuple,
--- it might all just me easier though using arrays.
 
 findCover :: Board -> SBool
 findCover rows = (bAnd $ map (checkElement arr) (assocs arr)) 
